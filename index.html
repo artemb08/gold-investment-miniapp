@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gold Investment Calculator</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            color: white;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .card {
+            background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #667eea;
+        }
+        .child-info {
+            display: grid;
+            gap: 8px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .info-value {
+            font-weight: 500;
+        }
+        .add-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏆 Gold Investment</h1>
+        <p>План накопления золота для детей</p>
+    </div>
+
+    <div id="user-info" style="margin-bottom: 16px; padding: 12px; background: #e3f2fd; border-radius: 8px; font-size: 14px;">
+        <strong>Пользователь:</strong> <span id="username">Загрузка...</span>
+    </div>
+
+    <div id="content">
+        <div class="loading">⏳ Загрузка данных...</div>
+    </div>
+
+    <button class="add-button" onclick="addChild()">➕ Добавить ребёнка</button>
+
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // API URL (поменяй на свой после деплоя)
+        const API_URL = 'http://localhost:5000/api';
+
+        // Получить данные пользователя
+        const user = tg.initDataUnsafe.user;
+        const userId = user ? user.id : 123456; // Для теста
+
+        document.getElementById('username').textContent = user ? 
+            `${user.first_name} (ID: ${userId})` : 
+            'Тестовый режим (ID: 123456)';
+
+        // Загрузить детей
+        async function loadChildren() {
+            try {
+                const response = await fetch(`${API_URL}/children/${userId}`);
+                const data = await response.json();
+                
+                const content = document.getElementById('content');
+                
+                if (Object.keys(data).length === 0) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">👶</div>
+                            <p>Пока нет детей</p>
+                            <p style="font-size: 12px; margin-top: 8px;">Нажмите кнопку ниже, чтобы добавить</p>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = Object.entries(data).map(([id, child]) => `
+                        <div class="card">
+                            <h3>${child.name}</h3>
+                            <div class="child-info">
+                                <div class="info-row">
+                                    <span class="info-label">Дата рождения:</span>
+                                    <span class="info-value">${child.birth_date}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Целевой возраст:</span>
+                                    <span class="info-value">${child.target_age_years || '—'} лет</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Бюджет:</span>
+                                    <span class="info-value">${child.monthly_budget_eur} EUR/мес</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Месяцев в плане:</span>
+                                    <span class="info-value">${child.plan_rows.length}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading children:', error);
+                document.getElementById('content').innerHTML = `
+                    <div class="card" style="color: #d32f2f;">
+                        <h3>❌ Ошибка</h3>
+                        <p>Не удалось загрузить данные. Проверьте, что API запущен.</p>
+                        <p style="font-size: 12px; margin-top: 8px;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Добавить ребёнка (пока просто алерт)
+        function addChild() {
+            tg.showAlert('Добавление ребёнка пока доступно только через бота! Напишите /start в чате с ботом.');
+        }
+
+        // Загрузить при открытии
+        loadChildren();
+    </script>
+</body>
+</html>
+
+
